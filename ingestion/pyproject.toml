@@ -1,0 +1,18 @@
+[project]
+name = "glamira-ingestion"
+version = "0.1.0"
+description = "Data ingestion pipeline for Glamira 32GB dataset"
+authors = [
+    {name = "Data Engineer"}
+]
+requires-python = "^3.10"
+dependencies = [
+    "polars (>=1.41.2,<2.0.0)",
+    "pymongo (>=4.17.0,<5.0.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,15 @@
+.env
+*gcp_key*
+*.pem
+*.key
+
+# Unnecessary file
+__pycache__/
+*.pyc
+.venv/
+.poetry/
+
+# Raw data
+*.csv
+*.json
+data/
