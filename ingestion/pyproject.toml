@@ -5,7 +5,7 @@ description = "Data ingestion pipeline for Glamira 32GB dataset"
 authors = [
     {name = "Data Engineer"}
 ]
-requires-python = "^3.10"
+requires-python = ">=3.10,<3.15"
 dependencies = [
     "polars (>=1.41.2,<2.0.0)",
     "pymongo (>=4.17.0,<5.0.0)",
@@ -15,6 +15,10 @@ dependencies = [
     "bs4 (>=0.0.2,<0.0.3)",
     "fake-useragent (>=2.2.0,<3.0.0)",
     "curl-cffi (>=0.15.0,<0.16.0)",
+    "motor (>=3.7.1,<4.0.0)",
+    "pydantic (>=2.13.4,<3.0.0)",
+    "selectolax (>=0.4.10,<0.5.0)",
+    "aiofiles (>=25.1.0,<26.0.0)",
 ]
 
 
