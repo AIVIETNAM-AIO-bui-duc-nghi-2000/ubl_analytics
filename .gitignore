@@ -13,3 +13,10 @@ __pycache__/
 *.csv
 *.json
 data/
+
+# Logging
+logs/
+*.log
+
+*.BIN
+*.bin
