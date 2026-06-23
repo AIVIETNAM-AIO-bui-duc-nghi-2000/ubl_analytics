@@ -1,5 +1,4 @@
 """
-ENTERPRISE PIPELINE: extract_product_info.py
 Architecture: Producer-Consumer, MongoDB Aggregation, Async File I/O
 Complies strictly with "Product information collection (8 hours)" task.
 """
