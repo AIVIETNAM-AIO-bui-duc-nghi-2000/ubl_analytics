@@ -23,7 +23,7 @@ from selectolax.parser import HTMLParser
 # ==========================================
 # 1. SETTINGS & CONFIGURATIONS
 # ==========================================
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27018/?authSource=admin")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://admin:password@localhost:27018/?authSource=admin")
 DB_NAME = "countly" 
 OUTPUT_FILE = "product_data_extracted.jsonl"
 
@@ -97,8 +97,12 @@ async def build_queue_from_events(db):
             {"$match": {"pid": {"$exists": True, "$ne": None}, "url": {"$exists": True, "$ne": None}}},
             {"$group": {"_id": "$pid", "url": {"$first": "$url"}}},
             {"$project": {
-                "_id": 0, "product_id": "$_id", "url": 1, 
-                "status": "PENDING", "retry_count": 0, "next_retry": 0
+                "_id": 0, 
+                "product_id": "$_id", 
+                "url": 1, 
+                "status": {"$literal": "PENDING"}, 
+                "retry_count": {"$literal": 0}, 
+                "next_retry": {"$literal": 0}
             }},
             {"$merge": {"into": "scrape_queue", "on": "product_id", "whenMatched": "keepExisting", "whenNotMatched": "insert"}}
         ]
@@ -115,8 +119,12 @@ async def build_queue_from_events(db):
         {"$match": {"pid": {"$exists": True, "$ne": None}, "url": {"$exists": True, "$ne": None}}},
         {"$group": {"_id": "$pid", "url": {"$first": "$url"}}},
         {"$project": {
-            "_id": 0, "product_id": "$_id", "url": 1, 
-            "status": "PENDING", "retry_count": 0, "next_retry": 0
+                "_id": 0, 
+                "product_id": "$_id", 
+                "url": 1, 
+                "status": {"$literal": "PENDING"}, 
+                "retry_count": {"$literal": 0}, 
+                "next_retry": {"$literal": 0}
         }},
         {"$merge": {"into": "scrape_queue", "on": "product_id", "whenMatched": "keepExisting", "whenNotMatched": "insert"}}
     ]
@@ -345,9 +353,9 @@ async def main():
         # Add a '#' at the beginning of the next 3 lines to disable TEST MODE. 
         # Once commented out, the script will run until all IDs are completely fetched.
         # =================================================================================
-        if batch_count >= 1:
-            logging.info("TEST MODE: Finished the first batch of 50 IDs. Shutting down safely for inspection.")
-            break
+        #if batch_count >= 1:
+        #    logging.info("TEST MODE: Finished the first batch of 50 IDs. Shutting down safely for inspection.")
+        #    break
 
         cursor = db.scrape_queue.find(
             {"status": "PENDING", "next_retry": {"$lte": time.time()}}

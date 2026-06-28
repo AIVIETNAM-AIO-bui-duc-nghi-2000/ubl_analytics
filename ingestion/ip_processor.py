@@ -7,25 +7,31 @@ Features:
 4. Dynamic Daily Logs: Creates separate log folders for each day.
 """
 
-import os
-import time
 import datetime
 import logging
-from logging.handlers import RotatingFileHandler
+import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from logging.handlers import RotatingFileHandler
 
 import IP2Location
-from pymongo import MongoClient, UpdateOne, ASCENDING
-from pymongo.errors import BulkWriteError, ConnectionFailure, ServerSelectionTimeoutError
+from pymongo import ASCENDING, MongoClient, UpdateOne
+from pymongo.errors import (
+    BulkWriteError,
+    ConnectionFailure,
+    ServerSelectionTimeoutError,
+)
 
 # ==========================================
 # SYSTEM SETTINGS
 # ==========================================
-DEFAULT_URI = "mongodb://admin_glamira:Th%40tIsMySecret2026%21@localhost:27018/?authSource=admin"
+DEFAULT_URI = (
+    "mongodb://admin_glamira:Th%40tIsMySecret2026%21@localhost:27018/?authSource=admin"
+)
 MONGO_URI = os.getenv("MONGO_URI", DEFAULT_URI)
 
 DB_NAME = "countly"
-BIN_FILE = "IP2LOCATION-LITE-DB11.BIN"
+BIN_FILE = "IP-COUNTRY-REGION-CITY.BIN"
 BATCH_SIZE = 2500
 MAX_WORKERS = 8
 
@@ -95,23 +101,23 @@ def process_batch(ip_list):
     # TỬ HUYỆT ĐÃ ĐƯỢC VÁ: Mỗi Worker tự khởi tạo một bộ đọc file riêng biệt
     # Tuyệt đối không dùng chung biến global để tránh Xung đột đa luồng (Race Condition)
     local_ip_query = IP2Location.IP2Location(BIN_FILE)
-    
+
     insert_ops = []
-    
+
     for ip in ip_list:
         try:
             rec = local_ip_query.get_all(ip)
-            
+
             # Bỏ qua nếu đọc ra None hoặc IP rác
-            if not rec or not hasattr(rec, 'country_short'):
+            if not rec or not hasattr(rec, "country_short"):
                 continue
-                
+
             doc = {
                 "ip": ip,
                 "country_code": rec.country_short,
                 "country_name": rec.country_long,
                 "city": rec.city,
-                "processed_at": time.time()
+                "processed_at": time.time(),
             }
             insert_ops.append(UpdateOne({"ip": ip}, {"$set": doc}, upsert=True))
         except Exception as e:
@@ -125,13 +131,12 @@ def process_batch(ip_list):
             logger.error(f"Bulk write error details: {bwe.details}")
         except Exception as e:
             logger.error(f"Target DB write error: {e}")
-            return 0 
+            return 0
 
     # Step 2: Crash-Proof State Tracking
     try:
         db["unique_ips"].update_many(
-            {"ip": {"$in": ip_list}},
-            {"$set": {"status": "DONE"}}
+            {"ip": {"$in": ip_list}}, {"$set": {"status": "DONE"}}
         )
     except Exception as e:
         logger.error(f"Source DB update error: {e}")
@@ -140,7 +145,7 @@ def process_batch(ip_list):
 
 
 def chunk_generator(cursor, batch_size):
-    """ Yields batches of IP addresses safely. """
+    """Yields batches of IP addresses safely."""
     batch = []
     for record in cursor:
         ip = record.get("ip")
@@ -161,7 +166,7 @@ def execute_pipeline():
     """
     # Only fetch IPs that are NOT marked as DONE.
     query = {"status": {"$ne": "DONE"}}
-    
+
     # Check if there is anything left to process
     remaining = db["unique_ips"].count_documents(query)
     if remaining == 0:
@@ -169,9 +174,9 @@ def execute_pipeline():
         return True
 
     logger.info(f"Found {remaining} IPs waiting to be processed.")
-    
+
     cursor = db["unique_ips"].find(query, {"ip": 1, "_id": 0}, no_cursor_timeout=True)
-    
+
     futures = []
     processed_in_this_run = 0
 
@@ -184,16 +189,20 @@ def execute_pipeline():
                 if len(futures) >= MAX_WORKERS * 2:
                     for future in as_completed(futures):
                         processed_in_this_run += future.result()
-                    logger.info(f"--> Batch complete. {processed_in_this_run} processed in this session.")
+                    logger.info(
+                        f"--> Batch complete. {processed_in_this_run} processed in this session."
+                    )
                     futures.clear()
 
             # Wait for remaining tasks
             for future in as_completed(futures):
                 processed_in_this_run += future.result()
-            
+
             if processed_in_this_run > 0:
-                logger.info(f"--> Batch complete. {processed_in_this_run} processed in this session.")
-                
+                logger.info(
+                    f"--> Batch complete. {processed_in_this_run} processed in this session."
+                )
+
     finally:
         cursor.close()
 
@@ -205,7 +214,7 @@ def main():
     The orchestrator with Infinite Network Retry mechanism.
     """
     start_time = time.time()
-    
+
     try:
         setup_database()
     except Exception as e:
@@ -213,26 +222,30 @@ def main():
         exit(1)
 
     logger.info("--- PIPELINE STARTED ---")
-    
+
     # Infinite Retry Loop (Network Resilience)
     while True:
         try:
             # Attempt to run the full pipeline
             is_finished = execute_pipeline()
-            
+
             if is_finished:
-                break # Exit the infinite loop when all data is processed
-                
+                break  # Exit the infinite loop when all data is processed
+
         except (ConnectionFailure, ServerSelectionTimeoutError) as net_error:
             # Network drops (even for an hour) will be caught here.
-            logger.warning(f"Network connection lost. Waiting 60 seconds... Error: {net_error}")
-            time.sleep(60) # Sleep and automatically retry
-            
+            logger.warning(
+                f"Network connection lost. Waiting 60 seconds... Error: {net_error}"
+            )
+            time.sleep(60)  # Sleep and automatically retry
+
         except Exception as unknown_error:
             # Catch other random crashes (e.g., cursor killed by MongoDB server)
-            logger.error(f"Pipeline crashed unexpectedly: {unknown_error}. Retrying in 10 seconds...")
+            logger.error(
+                f"Pipeline crashed unexpectedly: {unknown_error}. Retrying in 10 seconds..."
+            )
             time.sleep(10)
-            
+
     # Cleanup
     global_client.close()
     run_time = time.time() - start_time
@@ -243,4 +256,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        logger.warning("Pipeline forcefully stopped by user (Ctrl+C). Progress was saved safely.")
+        logger.warning(
+            "Pipeline forcefully stopped by user (Ctrl+C). Progress was saved safely."
+        )
